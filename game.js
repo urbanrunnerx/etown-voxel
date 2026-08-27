@@ -279,7 +279,7 @@ async function loadWorld() {
     }
     if (!wallBy.has(mat)) wallBy.set(mat, []);
     wallBy.get(mat).push(b);
-    if (mat !== 10 || h !== 8) roofs.push(b); // depot uses gable details, not a flat slab
+    if (mat !== 10) roofs.push(b); // depot brick gable is the roof (any hall height)
     binInsert(b);
   }
   for (const [matId, list] of wallBy) {

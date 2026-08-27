@@ -99,19 +99,19 @@ def wall_mat_for(tags: dict) -> int:
     b = (tags.get("building") or "").lower()
     name = (tags.get("name") or "").lower()
     if "amtrak" in name or b == "train_station":
-        return W_LIMESTONE
+        return W_BRICK
     if b in ("church", "cathedral", "chapel"):
         return W_CHURCH
     if b in ("industrial", "warehouse"):
         return W_INDUSTRIAL
     if b in ("shed", "garage", "carport"):
         return W_SHED
-    if b in ("house", "detached", "semidetached_house"):
+    if b in ("house", "detached", "semidetached_house", "terrace"):
         return W_HOUSE
     if b in ("retail", "commercial", "yes") and "market" in (tags.get("addr:street") or "").lower():
         return W_BRICK2
-    # hash id into two brick tones so rows aren't identical
-    return W_BRICK if (hash(tags.get("name") or b) % 2 == 0) else W_BRICK2
+    # neighbors stay quiet tan so the brick depot reads
+    return W_HOUSE
 
 
 def point_in_poly(px: float, pz: float, poly: np.ndarray) -> bool:
@@ -421,13 +421,12 @@ def main() -> None:
     ground_out = [flip_ground(r) for r in ground_rects]
     builds_out = [flip_build(b) for b in build_boxes]
 
-    # spawn: on S Wilson Ave just north of the station building, looking at Center Square
-    # Station centroid ~ (2, 2); Wilson ~ (6, 36). Nudge if inside a building cell.
-    sx, sz = 4.5, 28.0
+    # spawn: on the platform (track side of the brick bar), looking at Center Square
+    sx, sz = 0.0, -27.0  # OSM; three.js z = +27 on the platform
     gi = int(sx) - MIN_X
     gj = int(sz) - MIN_Z
     if 0 <= gi < W and 0 <= gj < D and hgt[gj, gi] >= 2:
-        sx, sz = -8.0, 22.0
+        sx, sz = 5.0, -26.0
     square = None
     # High ∩ Market from node coords in raw
     for e in els:
@@ -466,7 +465,7 @@ def main() -> None:
     # labels: street names + station + center square
     labels = []
     # station
-    labels.append({"x": 2.0, "y": 12.5, "z": -2.0, "text": "ELIZABETHTOWN STATION", "kind": "place"})
+    # LABEL OFF: brick gable + canopy must read without a station tag.
     labels.append({"x": 6.0, "y": 3.2, "z": -34.0, "text": "S WILSON AVE", "kind": "street"})
     labels.append({"x": square["x"], "y": 5.5, "z": square["z"], "text": "CENTER SQUARE", "kind": "place"})
     labels.append({"x": square["x"] + 8, "y": 3.2, "z": square["z"] - 14, "text": "MARKET ST", "kind": "street"})
@@ -553,97 +552,147 @@ def main() -> None:
             break
     if station_aabb:
         xa, xb, za, zb = station_aabb
-        # clear generic station cells and rebuild a recognizable massing
-        i0 = max(0, int(math.floor(xa)) - MIN_X)
-        i1 = min(W - 1, int(math.floor(xb)) - MIN_X)
-        j0 = max(0, int(math.floor(za)) - MIN_Z)
-        j1 = min(D - 1, int(math.floor(zb)) - MIN_Z)
-        for j in range(j0, j1 + 1):
-            for ii in range(i0, i1 + 1):
-                if wmats[j, ii] == W_LIMESTONE and hgt[j, ii] >= 3:
-                    hgt[j, ii] = 0
-                    wmats[j, ii] = 0
-        # main hall walls ~8 m granite mass (Holmesburg granite + limestone trim)
-        # orient: footprint is ~23 m E-W by ~15 m N-S, long axis ~SE-NW
-        # place axis-aligned hall covering the footprint
-        hall_h = 8
-        fill_poly_into(hgt, wmats, [
-            (xa + 0.5, za + 0.5), (xb - 0.5, za + 0.5),
-            (xb - 0.5, zb - 0.5), (xa + 0.5, zb - 0.5),
-            (xa + 0.5, za + 0.5),
-        ], hall_h, W_BRICK, MIN_X, MIN_Z)
-        # limestone water table / window band (detail boxes, world meters OSM)
         cx = (xa + xb) * 0.5
         cz = (za + zb) * 0.5
-        # porch posts + roof on the north (town) face — reads from Wilson
-        porch_z0, porch_z1 = zb - 0.2, zb + 3.2
-        porch_x0, porch_x1 = cx - 4.0, cx + 4.0
-        for px, pz in (
-            (porch_x0 + 0.3, porch_z0 + 0.3),
-            (porch_x1 - 0.7, porch_z0 + 0.3),
-            (porch_x0 + 0.3, porch_z1 - 0.7),
-            (porch_x1 - 0.7, porch_z1 - 0.7),
-        ):
+
+        # rail heading near the depot (OSM x east, z north)
+        rxs, rzs = [], []
+        rail_segs = []
+        for pts, _t in rails:
+            for i, (px, pz) in enumerate(pts):
+                if (px - cx) ** 2 + (pz - cz) ** 2 < 90 * 90:
+                    rxs.append(px)
+                    rzs.append(pz)
+                if i + 1 < len(pts):
+                    qx, qz = pts[i + 1]
+                    mx, mz = (px + qx) * 0.5, (pz + qz) * 0.5
+                    if (mx - cx) ** 2 + (mz - cz) ** 2 < 90 * 90:
+                        rail_segs.append((px, pz, qx, qz))
+        if len(rxs) >= 4:
+            mx = sum(rxs) / len(rxs)
+            mz = sum(rzs) / len(rzs)
+            sxx = sum((x - mx) ** 2 for x in rxs) / len(rxs)
+            szz = sum((z - mz) ** 2 for z in rzs) / len(rzs)
+            sxz = sum((x - mx) * (z - mz) for x, z in zip(rxs, rzs)) / len(rxs)
+            ang = 0.5 * math.atan2(2 * sxz, (sxx - szz) or 1e-6)
+            ux, uz = math.cos(ang), math.sin(ang)
+            rail_cx, rail_cz = mx, mz
+        else:
+            ux, uz = 1.0, 0.0
+            rail_cx, rail_cz = cx, cz - 18.0
+        px, pz = -uz, ux
+        if pz < 0:
+            px, pz = -px, -pz
+            ux, uz = -ux, -uz
+
+        def stamp_oriented(ox, oz, half_len, half_w, height, wmat, gmat=None, gable=False):
+            pad = half_len + half_w + 2
+            i0s = max(0, int(ox - pad) - MIN_X)
+            i1s = min(W - 1, int(ox + pad) - MIN_X)
+            j0s = max(0, int(oz - pad) - MIN_Z)
+            j1s = min(D - 1, int(oz + pad) - MIN_Z)
+            for j in range(j0s, j1s + 1):
+                wz = MIN_Z + j + 0.5
+                for ii in range(i0s, i1s + 1):
+                    wx = MIN_X + ii + 0.5
+                    dx, dz = wx - ox, wz - oz
+                    along = dx * ux + dz * uz
+                    across = dx * px + dz * pz
+                    if abs(along) > half_len or abs(across) > half_w:
+                        continue
+                    if gmat is not None:
+                        ground[j, ii] = gmat
+                    if height:
+                        hh = height
+                        if gable:
+                            t = 1.0 - abs(across) / max(half_w, 0.5)
+                            hh = height + int(round(3.0 * t))
+                        hgt[j, ii] = hh
+                        wmats[j, ii] = wmat
+
+        # swallow gray leftovers: tall OSM cubes + parking pads
+        for j in range(D):
+            for ii in range(W):
+                wx = MIN_X + ii + 0.5
+                wz = MIN_Z + j + 0.5
+                if (wx - cx) ** 2 + (wz - cz) ** 2 > 90 * 90:
+                    continue
+                if wmats[j, ii] == W_INDUSTRIAL or hgt[j, ii] >= 3:
+                    hgt[j, ii] = 0
+                    wmats[j, ii] = 0
+                if ground[j, ii] == G_PARKING:
+                    ground[j, ii] = G_GRASS
+                # drop fat 1 m limestone wings from the previous pass
+                if hgt[j, ii] == 1 and wmats[j, ii] == W_LIMESTONE:
+                    hgt[j, ii] = 0
+                    wmats[j, ii] = 0
+
+        # long THIN brick bar parallel to rails, Wilson/town side, close to the tracks
+        bar_half_len, bar_half_w, eaves = 24.0, 4.0, 5
+        bar_ox = rail_cx + px * (7.0 + bar_half_w)
+        bar_oz = rail_cz + pz * (7.0 + bar_half_w)
+        stamp_oriented(bar_ox, bar_oz, bar_half_len, bar_half_w, eaves, W_BRICK, gable=True)
+
+        # platforms BOTH sides of the actual rail segs (ground only, not a 1 m gray wing)
+        def stamp_disk(x, z, r, gmat):
+            i0s = max(0, int(x - r) - MIN_X)
+            i1s = min(W - 1, int(x + r) - MIN_X)
+            j0s = max(0, int(z - r) - MIN_Z)
+            j1s = min(D - 1, int(z + r) - MIN_Z)
+            rr = r * r
+            for j in range(j0s, j1s + 1):
+                wz = MIN_Z + j + 0.5
+                for ii in range(i0s, i1s + 1):
+                    wx = MIN_X + ii + 0.5
+                    if (wx - x) ** 2 + (wz - z) ** 2 <= rr:
+                        ground[j, ii] = gmat
+
+        for x0, z0, x1, z1 in rail_segs:
+            sx, sz = x1 - x0, z1 - z0
+            sl = math.hypot(sx, sz) or 1.0
+            rx, rz = -sz / sl, sx / sl  # perp
+            steps = max(1, int(sl))
+            for s in range(steps + 1):
+                t = s / steps
+                x = x0 + sx * t
+                z = z0 + sz * t
+                stamp_disk(x + rx * 4.0, z + rz * 4.0, 1.6, G_PLATFORM)
+                stamp_disk(x - rx * 4.0, z - rz * 4.0, 1.6, G_PLATFORM)
+
+        # canopy along the track face of the bar (same length, no side wing)
+        canopy_y = 3.4
+        face = bar_half_w + 0.2
+        npost = int(bar_half_len * 2 // 4)
+        for k in range(-npost, npost + 1):
+            along = k * 4.0
+            if abs(along) > bar_half_len - 1:
+                continue
             station_details.append({
-                "kind": "porch_post",
-                "x": px, "z": pz,
-                "w": 0.35, "d": 0.35,
-                "y": 0.0, "h": 3.2, "mat": 17,
+                "kind": "canopy_post",
+                "x": bar_ox + ux * along - px * face,
+                "z": bar_oz + uz * along - pz * face,
+                "w": 0.35, "d": 0.35, "y": 0.0, "h": canopy_y, "mat": 17,
             })
-        station_details.append({
-            "kind": "porch_roof",
-            "x": porch_x0 - 0.3, "z": porch_z0 - 0.3,
-            "w": (porch_x1 - porch_x0) + 0.6, "d": (porch_z1 - porch_z0) + 0.6,
-            "y": 3.2, "h": 0.35, "mat": 18,
-        })
-        # tall chimney (west end) — signature of the 1915 depot
-        ch_x = xa + 1.5
-        ch_z = cz - 1.0
-        station_details.append({
-            "kind": "chimney",
-            "x": ch_x, "z": ch_z,
-            "w": 1.4, "d": 1.4,
-            "y": hall_h, "h": 5.5, "mat": 10,
-        })
-        # steep gable roof: stepped ridge along long (x) axis
-        # ridge runs roughly E-W across the footprint
-        for step, rise in enumerate((0, 1, 2, 3, 2, 1, 0)):
-            # seven bands N-S
-            band_d = (zb - za) / 7.0
-            z0 = za + step * band_d
-            station_details.append({
-                "kind": "gable",
-                "x": xa - 0.4, "z": z0,
-                "w": (xb - xa) + 0.8, "d": band_d + 0.05,
-                "y": hall_h + rise * 0.55, "h": 0.55, "mat": 18,
-            })
-        # limestone door surround (north face)
-        station_details.append({
-            "kind": "door",
-            "x": cx - 1.1, "z": zb - 0.35,
-            "w": 2.2, "d": 0.5,
-            "y": 0.0, "h": 3.0, "mat": 19,
-        })
-        # limestone window trim band
-        station_details.append({
-            "kind": "band",
-            "x": xa - 0.15, "z": za - 0.15,
-            "w": (xb - xa) + 0.3, "d": (zb - za) + 0.3,
-            "y": 4.2, "h": 0.45, "mat": 19,
-        })
-        # AMTRAK platform canopy stubs near platforms (north of tracks / south of hall)
-        for side, oz in (("n", za - 4.0), ("s", zb + 6.0)):
+        # several short lids along the face so it does not AABB into an L
+        for k in range(-npost, npost):
+            along = k * 4.0 + 2.0
+            if abs(along) > bar_half_len - 2:
+                continue
             station_details.append({
                 "kind": "canopy",
-                "x": cx - 8.0, "z": oz,
-                "w": 16.0, "d": 2.2,
-                "y": 3.6, "h": 0.25, "mat": 15,
+                "x": bar_ox + ux * along - px * (face + 1.2) - 2.0,
+                "z": bar_oz + uz * along - pz * (face + 1.2) - 0.4,
+                "w": 4.2, "d": 2.4, "y": canopy_y, "h": 0.3, "mat": 18,
             })
 
+    # rebuild greedy after station rewrite
+    # rebuild greedy after station rewrite
     # rebuild greedy after station rewrite
     if station_aabb:
         build_boxes = greedy_buildings(hgt, wmats, MIN_X, MIN_Z)
         builds_out = [flip_build(b) for b in build_boxes]
+        ground_rects = greedy_2d(ground, MIN_X, MIN_Z)
+        ground_out = [flip_ground(r) for r in ground_rects]
 
     def flip_detail(d):
         # OSM x east, z north -> three x east, z south
