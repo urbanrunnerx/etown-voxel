@@ -363,8 +363,63 @@ function addLabels(labels) {
   }
 }
 
+
+const hudEl = document.getElementById("hud");
+let streets = [];
+let streetNow = "";
+
+function prettyStreet(text) {
+  let t = String(text || "").replace(/\s+/g, " ").trim();
+  if (/station|amtrak/i.test(t)) return "";
+  t = t.replace(/^(N|S|E|W|NORTH|SOUTH|EAST|WEST)\s+/i, "");
+  t = t.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+  return t;
+}
+
+function collectStreets(labels) {
+  streets = [];
+  for (const lab of labels || []) {
+    if (lab.kind !== "street") continue;
+    const name = prettyStreet(lab.text);
+    if (!name) continue;
+    streets.push({ x: lab.x, z: lab.z, name });
+  }
+}
+
+function nearestStreet(px, pz) {
+  let best = null, bestD = Infinity;
+  for (const s of streets) {
+    const d = (s.x - px) * (s.x - px) + (s.z - pz) * (s.z - pz);
+    if (d < bestD) { bestD = d; best = s; }
+  }
+  return best;
+}
+
+function nearestNamed(px, pz, name) {
+  let bestD = Infinity;
+  for (const s of streets) {
+    if (s.name !== name) continue;
+    const d = (s.x - px) * (s.x - px) + (s.z - pz) * (s.z - pz);
+    if (d < bestD) bestD = d;
+  }
+  return bestD;
+}
+
+function setStreetHud(px, pz) {
+  const n = nearestStreet(px, pz);
+  const name = n ? n.name : "";
+  if (name === streetNow) return;
+  if (streetNow && n) {
+    const dCur = nearestNamed(px, pz, streetNow);
+    const dNew = (n.x - px) * (n.x - px) + (n.z - pz) * (n.z - pz);
+    if (dCur <= dNew + 18 * 18) return;
+  }
+  streetNow = name;
+  hudEl.textContent = name;
+}
+
 async function loadWorld() {
-  const res = await fetch("./data/chunk.json?v=gold1");
+  const res = await fetch("./data/chunk.json?v=street1");
   chunk = await res.json();
   bounds = chunk.bounds;
 
@@ -437,6 +492,7 @@ async function loadWorld() {
   });
   if (roofMesh) roofMesh.instanceMatrix.needsUpdate = true;
 
+  collectStreets(chunk.labels || []);
   addLabels(chunk.labels || []);
   addDetails(chunk.details || []);
 
@@ -446,6 +502,7 @@ async function loadWorld() {
   // First frame: driveway 3/4 on the FLAT granite facade. End gables + bank behind.
   camera.lookAt(0, 5.0, -6);
   stationLamp.position.set(0, 8, -10);
+  setStreetHud(sp.x, sp.z);
 
   if (view) {
     overlay.classList.add("hidden");
@@ -577,6 +634,9 @@ function tick() {
       pz = Math.min(bounds.maxZ - 1.2, Math.max(bounds.minZ + 1.2, pz));
     }
     camera.position.set(px, py, pz);
+    setStreetHud(px, pz);
+  } else if (chunk) {
+    setStreetHud(camera.position.x, camera.position.z);
   }
 
   renderer.render(scene, camera);
@@ -585,10 +645,7 @@ function tick() {
 loadWorld()
   .then(() => {
     tick();
-    if (view) {
-      document.getElementById("hud").textContent =
-        view === "square" ? "Center Square — High & Market" : "Elizabethtown station — S Wilson Ave";
-    }
+    setStreetHud(camera.position.x, camera.position.z);
   })
   .catch((err) => {
     overlay.querySelector(".hint").textContent = "Failed to load slice: " + err.message;
