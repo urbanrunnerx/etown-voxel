@@ -2,9 +2,9 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 
 const GROUND = {
-  1: 0x3a4030, // grass — golden hour
-  2: 0x4e4a44, // asphalt
-  3: 0x7a7368, // sidewalk
+  1: 0x4e5840, // grass
+  2: 0x68645c, // asphalt
+  3: 0x968f84, // sidewalk
   4: 0x2c281f, // path
   5: 0x262420, // parking
   6: 0x8b9096, // rail
@@ -15,9 +15,9 @@ const GROUND = {
 const WALL = {
   10: 0x2c221c, // dark brick mass (depot)
   11: 0x32261e, // brick2
-  12: 0xcbb89a, // Holmesburg granite
+  12: 0x9a9892, // Holmesburg granite grey
   13: 0x241e18, // house mass
-  14: 0x6e6254, // bank / earth
+  14: 0x8a8278, // bank / earth
   15: 0x1a1816, // industrial
   16: 0x2a261f, // church
   17: 0x2a2218, // timber
@@ -34,13 +34,13 @@ const view = params.get("view"); // spawn | square | path — screenshot cameras
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0xc07040, 1);
+renderer.setClearColor(0x3a3658, 1);
 renderer.shadowMap.enabled = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xc07040);
-scene.fog = new THREE.FogExp2(0xc07848, 0.00016);
+scene.background = new THREE.Color(0x3a3658);
+scene.fog = new THREE.FogExp2(0xb08058, 0.00007);
 
 const camera = new THREE.PerspectiveCamera(64, innerWidth / innerHeight, 0.12, 900);
 const controls = new PointerLockControls(camera, document.body);
@@ -55,30 +55,29 @@ const skyMat = new THREE.ShaderMaterial({
     "varying vec3 vP;",
     "void main(){",
     "  vec3 n = normalize(vP); float h = n.y;",
-    "  vec3 zenith = vec3(0.20, 0.18, 0.38);",
-    "  vec3 mid    = vec3(0.62, 0.40, 0.32);",
-    "  vec3 horz   = vec3(1.00, 0.62, 0.28);",
-    "  vec3 below  = vec3(0.42, 0.24, 0.16);",
-    "  vec3 col = mix(mid, zenith, smoothstep(0.05, 0.85, h));",
-    "  col = mix(horz, col, smoothstep(-0.08, 0.22, h));",
-    "  col = mix(below, col, smoothstep(-0.28, 0.02, h));",
-    "  vec3 sunDir = normalize(vec3(-0.88, 0.10, -0.28));",
+    "  vec3 zenith = vec3(0.22, 0.24, 0.48);",
+    "  vec3 mid    = vec3(0.42, 0.36, 0.44);",
+    "  vec3 horz   = vec3(0.95, 0.58, 0.32);",
+    "  vec3 below  = vec3(0.22, 0.16, 0.14);",
+    "  vec3 col = mix(mid, zenith, smoothstep(0.08, 0.9, h));",
+    "  col = mix(horz, col, smoothstep(-0.04, 0.10, h));",
+    "  col = mix(below, col, smoothstep(-0.22, 0.0, h));",
+    "  vec3 sunDir = normalize(vec3(-0.42, 0.14, -0.90));",
     "  float sunDot = max(dot(n, sunDir), 0.0);",
-    "  col += vec3(1.0, 0.78, 0.40) * pow(sunDot, 280.0) * 2.4;",
-    "  col += vec3(1.0, 0.50, 0.18) * pow(sunDot, 12.0) * 0.55;",
-    "  col += vec3(0.55, 0.22, 0.08) * pow(sunDot, 3.0) * 0.28;",
+    "  col += vec3(1.0, 0.82, 0.45) * pow(sunDot, 220.0) * 2.2;",
+    "  col += vec3(1.0, 0.55, 0.22) * pow(sunDot, 14.0) * 0.4;",
     "  gl_FragColor = vec4(col, 1.0);",
     "}",
   ].join("\n"),
 });
 scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-scene.add(new THREE.HemisphereLight(0xffd2a8, 0x6a4a32, 1.35));
-const sun = new THREE.DirectionalLight(0xffc078, 3.2);
-sun.position.set(-420, 22, -140); // on the western horizon, rakes the Wilson facade
+scene.add(new THREE.HemisphereLight(0xffe0c0, 0x7a6a58, 1.55));
+const sun = new THREE.DirectionalLight(0xffd090, 3.6);
+sun.position.set(-180, 40, -480); // SW horizon, hits the Wilson facade
 scene.add(sun);
-const bounce = new THREE.DirectionalLight(0xffe0c0, 0.85);
-bounce.position.set(180, 80, 60);
+const bounce = new THREE.DirectionalLight(0xfff0d8, 1.15);
+bounce.position.set(80, 120, -200);
 scene.add(bounce);
 const moon = new THREE.DirectionalLight(0x8aa0c4, 0.08);
 moon.position.set(200, 300, -100);
@@ -307,16 +306,18 @@ function makeSignTexture(text, kind) {
 
 
 const DETAIL_KIND = {
-  chimney: 0xa39a8c,
-  canopy_post: 0xb8a888,
-  canopy: 0xd8c4a4,
-  elevator: 0xa8c4d4,
-  gullwing: 0xc4ccd4,
-  rail: 0x9aa2aa,
-  ballast: 0x5a564c,
-  platform_deck: 0x7a7872,
-  yellow_edge: 0xd4b43a,
-  slate_gable: 0x2a2826,
+  chimney: 0x5c5852,
+  canopy_post: 0x9a9488,
+  canopy: 0xe8dcc8,
+  elevator: 0xb8d0dc,
+  gullwing: 0xd0d6dc,
+  rail: 0xd8dde2,
+  ballast: 0x7a7468,
+  platform_deck: 0xa8a69e,
+  yellow_edge: 0xf0c83a,
+  slate_gable: 0x3a3836,
+  window: 0x1a1816,
+  window_lit: 0xe0a848,
 };
 function addDetails(details) {
   if (!details || !details.length) return;
@@ -419,7 +420,7 @@ function setStreetHud(px, pz) {
 }
 
 async function loadWorld() {
-  const res = await fetch("./data/chunk.json?v=street1");
+  const res = await fetch("./data/chunk.json?v=grey1");
   chunk = await res.json();
   bounds = chunk.bounds;
 
@@ -500,7 +501,7 @@ async function loadWorld() {
   camera.position.set(sp.x, sp.y, sp.z);
   camera.rotation.order = "YXZ";
   // First frame: driveway 3/4 on the FLAT granite facade. End gables + bank behind.
-  camera.lookAt(0, 5.0, -6);
+  camera.lookAt(0, 6.4, -4);
   stationLamp.position.set(0, 8, -10);
   setStreetHud(sp.x, sp.z);
 
@@ -520,10 +521,10 @@ function applyView(name) {
   const st = chunk.spawn;
   if (name === "station") {
     camera.position.set(10, 2.4, -26);
-    camera.lookAt(0, 5.0, -6);
+    camera.lookAt(0, 6.4, -4);
   } else if (name === "spawn") {
     camera.position.set(st.x, st.y, st.z);
-    camera.lookAt(0, 5.0, -6);
+    camera.lookAt(0, 6.4, -4);
   } else if (name === "square") {
     camera.position.set(sq.x - 22, 12, sq.z + 40);
     camera.lookAt(sq.x, 3.5, sq.z);
