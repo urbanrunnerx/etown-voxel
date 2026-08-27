@@ -2,29 +2,29 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 
 const GROUND = {
-  1: 0x4f8a3a, // grass
-  2: 0x3d3d42, // asphalt
-  3: 0xc6c1b4, // sidewalk
-  4: 0x6e5a45, // path (bike/ped)
-  5: 0x45454c, // parking
-  6: 0x1f1f24, // rail
-  7: 0x6a6560, // ballast
-  8: 0xb9b3a6, // platform
-  9: 0x8a8a7a, // plaza
+  1: 0x1a1814, // grass — dusk
+  2: 0x3a3732, // asphalt
+  3: 0x5c564c, // sidewalk
+  4: 0x2c281f, // path
+  5: 0x262420, // parking
+  6: 0x8b9096, // rail
+  7: 0x2c281f, // ballast
+  8: 0x3a3732, // platform
+  9: 0x6a6048, // plaza
 };
 const WALL = {
-  10: 0x8a4e3c, // brick (ELT depot + downtown)
-  11: 0xa35a45, // brick2
-  12: 0xd5cfc0, // limestone
-  13: 0xc4b49a, // house
-  14: 0x6b5a48, // shed
-  15: 0x7a7a82, // industrial / metal
-  16: 0xcfc6b8, // church
-  17: 0x5c4020, // heavy timber
-  18: 0x2e2a2c, // slate
-  19: 0xe8e0d0, // Indiana limestone trim
+  10: 0x2c221c, // dark brick mass (depot)
+  11: 0x32261e, // brick2
+  12: 0x3a3732, // limestone / platform slab
+  13: 0x241e18, // house mass
+  14: 0x1c1a16, // shed
+  15: 0x1a1816, // industrial
+  16: 0x2a261f, // church
+  17: 0x2a2218, // timber
+  18: 0x141214, // slate
+  19: 0x4a453c, // trim
 };
-const ROOF = 0x4a3a36;
+const ROOF = 0x141214;
 const DETAIL = WALL;
 
 const overlay = document.getElementById("overlay");
@@ -34,34 +34,125 @@ const view = params.get("view"); // spawn | square | path — screenshot cameras
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x87b6d9, 1);
+renderer.setClearColor(0x0c1018, 1);
 renderer.shadowMap.enabled = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x87b6d9);
-scene.fog = new THREE.Fog(0x9ec4e0, 140, 720);
+scene.background = new THREE.Color(0x0c1018);
+scene.fog = new THREE.FogExp2(0x121722, 0.00115);
 
-const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.12, 900);
+const camera = new THREE.PerspectiveCamera(64, innerWidth / innerHeight, 0.12, 900);
 const controls = new PointerLockControls(camera, document.body);
 
-const hemi = new THREE.HemisphereLight(0xd7e8ff, 0x4a5a32, 1.05);
-scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xfff3d0, 1.15);
-sun.position.set(-80, 140, 40);
+const skyGeo = new THREE.SphereGeometry(1600, 32, 16);
+const skyMat = new THREE.ShaderMaterial({
+  side: THREE.BackSide,
+  depthWrite: false,
+  fog: false,
+  vertexShader: "varying vec3 vP; void main(){ vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+  fragmentShader: [
+    "varying vec3 vP;",
+    "void main(){",
+    "  vec3 n = normalize(vP); float h = n.y;",
+    "  vec3 zenith = vec3(0.04, 0.055, 0.09);",
+    "  vec3 mid    = vec3(0.10, 0.13, 0.20);",
+    "  vec3 horz   = vec3(0.72, 0.42, 0.28);",
+    "  vec3 below  = vec3(0.08, 0.07, 0.07);",
+    "  vec3 col = mix(mid, zenith, smoothstep(0.0, 0.75, h));",
+    "  col = mix(horz, col, smoothstep(-0.05, 0.18, h));",
+    "  col = mix(below, col, smoothstep(-0.25, 0.02, h));",
+    "  float west = smoothstep(0.15, 0.8, -n.x) * (1.0 - abs(h));",
+    "  col += vec3(0.18, 0.07, 0.02) * west * 0.45;",
+    "  gl_FragColor = vec4(col, 1.0);",
+    "}",
+  ].join("\n"),
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+scene.add(new THREE.HemisphereLight(0x6a7a99, 0x1a1612, 0.85));
+const sun = new THREE.DirectionalLight(0xffb07a, 1.15);
+sun.position.set(-400, 180, 120);
 scene.add(sun);
-scene.add(new THREE.AmbientLight(0xffffff, 0.18));
+const moon = new THREE.DirectionalLight(0x8aa0c4, 0.22);
+moon.position.set(200, 300, -100);
+scene.add(moon);
+const stationLamp = new THREE.PointLight(0xffc27a, 1.4, 70, 2.0);
+stationLamp.position.set(0, 8, 8);
+scene.add(stationLamp);
+const squareLamp = new THREE.PointLight(0xe8d0a0, 1.6, 90, 2.0);
+squareLamp.position.set(531, 11, -514);
+scene.add(squareLamp);
 
 const unit = new THREE.BoxGeometry(1, 1, 1);
 const meshes = [];
 
 function instanced(color, count, roughness = 0.92, metalness = 0.02) {
   if (count <= 0) return null;
-  const mat = new THREE.MeshStandardMaterial({
-    color,
-    roughness,
-    metalness,
-    vertexColors: false,
+  const mat = new THREE.MeshLambertMaterial({ color });
+  const mesh = new THREE.InstancedMesh(unit, mat, count);
+  mesh.frustumCulled = true;
+  scene.add(mesh);
+  meshes.push(mesh);
+  return mesh;
+}
+
+const duskVert = [
+  "varying vec3 vWPos;",
+  "varying vec3 vN;",
+  "varying vec3 vView;",
+  "void main(){",
+  "  vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);",
+  "  vWPos = wp.xyz;",
+  "  vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);",
+  "  vView = cameraPosition - wp.xyz;",
+  "  gl_Position = projectionMatrix * viewMatrix * wp;",
+  "}",
+].join("\n");
+const duskFrag = [
+  "uniform vec3 uColor;",
+  "uniform float uLit;",
+  "varying vec3 vWPos;",
+  "varying vec3 vN;",
+  "varying vec3 vView;",
+  "void main(){",
+  "  vec3 N = normalize(vN);",
+  "  vec3 V = normalize(vView);",
+  "  float up = N.y;",
+  "  vec3 wall = uColor;",
+  "  vec3 roof = uColor * 0.32;",
+  "  float fu = mix(fract(vWPos.x * 0.52), fract(vWPos.z * 0.52), step(abs(N.x), abs(N.z)));",
+  "  float wy = fract(vWPos.y * 0.46 + 0.08);",
+  "  float windowPane = step(0.40, fu) * step(0.34, wy);",
+  "  windowPane *= step(1.2, vWPos.y);",
+  "  windowPane *= 1.0 - smoothstep(0.42, 0.72, abs(up));",
+  "  float id = floor(vWPos.x * 0.52) + floor(vWPos.y * 0.46) * 17.0 + floor(vWPos.z * 0.52) * 9.0;",
+  "  float hash = fract(sin(id * 127.13) * 43758.5453);",
+  "  float occupied = step(0.38, hash) * uLit;",
+  "  vec3 winCol = mix(vec3(0.06, 0.07, 0.09), vec3(1.0, 0.70, 0.36), occupied);",
+  "  vec3 base = mix(wall, roof, smoothstep(0.55, 0.88, up));",
+  "  base = mix(base, winCol, windowPane);",
+  "  vec3 L = normalize(vec3(-0.62, 0.38, 0.28));",
+  "  float ndl = max(dot(N, L), 0.0);",
+  "  vec3 hemi = mix(vec3(0.16, 0.13, 0.11), vec3(0.32, 0.36, 0.44), N.y * 0.5 + 0.5);",
+  "  vec3 col = base * (hemi + vec3(1.0, 0.72, 0.48) * ndl * 0.62 + vec3(0.16, 0.20, 0.28) * 0.28);",
+  "  col += winCol * windowPane * occupied * 0.9;",
+  "  float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8) * 0.14;",
+  "  col += vec3(0.65, 0.42, 0.28) * rim * (1.0 - abs(up));",
+  "  gl_FragColor = vec4(col, 1.0);",
+  "}",
+].join("\n");
+
+function instancedDusk(color, count, lit) {
+  if (count <= 0) return null;
+  const c = new THREE.Color(color);
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uColor: { value: new THREE.Vector3(c.r, c.g, c.b) },
+      uLit: { value: lit },
+    },
+    vertexShader: duskVert,
+    fragmentShader: duskFrag,
   });
   const mesh = new THREE.InstancedMesh(unit, mat, count);
   mesh.frustumCulled = true;
@@ -283,14 +374,29 @@ async function loadWorld() {
     binInsert(b);
   }
   for (const [matId, list] of wallBy) {
-    const mesh = instanced(WALL[matId] || 0x888888, list.length, 0.88, 0.04);
-    list.forEach((b, i) => {
-      const h = b[4];
-      const x = b[0] + b[2] * 0.5;
-      const z = b[1] + b[3] * 0.5;
-      put(mesh, i, x, h * 0.5, z, b[2], h, b[3]);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
+    const tall = list.filter((b) => b[4] > 1);
+    const low = list.filter((b) => b[4] <= 1);
+    if (low.length) {
+      const mesh = instanced(WALL[matId] || 0x333333, low.length);
+      low.forEach((b, i) => {
+        const h = b[4];
+        const x = b[0] + b[2] * 0.5;
+        const z = b[1] + b[3] * 0.5;
+        put(mesh, i, x, h * 0.5, z, b[2], h, b[3]);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+    if (tall.length) {
+      const lit = matId === 10 ? 0.4 : 0.85;
+      const mesh = instancedDusk(WALL[matId] || 0x241e18, tall.length, lit);
+      tall.forEach((b, i) => {
+        const h = b[4];
+        const x = b[0] + b[2] * 0.5;
+        const z = b[1] + b[3] * 0.5;
+        put(mesh, i, x, h * 0.5, z, b[2], h, b[3]);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
   }
   const roofMesh = instanced(ROOF, roofs.length, 0.96, 0.0);
   roofs.forEach((b, i) => {
@@ -322,9 +428,8 @@ function applyView(name) {
   const sq = chunk.square;
   const st = chunk.spawn;
   if (name === "spawn") {
-    // south of the limestone station, rails/platforms in the foreground
-    camera.position.set(16, 5.8, 18);
-    camera.lookAt(1, 5.2, -2);
+    camera.position.set(st.x, 1.7, st.z);
+    camera.lookAt(st.x + 28, 2.2, st.z - 36);
   } else if (name === "square") {
     camera.position.set(sq.x - 22, 12, sq.z + 40);
     camera.lookAt(sq.x, 3.5, sq.z);
