@@ -1,0 +1,7 @@
+The game code in this repository is dedicated to the public domain under CC0 1.0
+(https://creativecommons.org/publicdomain/zero/1.0/), except:
+
+- vendor/three.module.js and vendor/addons/ (MIT, three.js authors)
+- data/osm-raw.json and derived data/chunk.json, which contain OpenStreetMap
+  data © OpenStreetMap contributors, licensed under the Open Database License
+  (ODbL): https://www.openstreetmap.org/copyright
