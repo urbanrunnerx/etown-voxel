@@ -427,7 +427,10 @@ function applyView(name) {
   overlay.classList.add("hidden");
   const sq = chunk.square;
   const st = chunk.spawn;
-  if (name === "spawn") {
+  if (name === "station") {
+    camera.position.set(10, 2.6, 34);
+    camera.lookAt(0, 5.0, 5);
+  } else if (name === "spawn") {
     camera.position.set(st.x, 1.7, st.z);
     camera.lookAt(st.x + 28, 2.2, st.z - 36);
   } else if (name === "square") {
