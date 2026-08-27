@@ -4,6 +4,8 @@ First slice of a 1-meter voxel walk of downtown **Elizabethtown, Pennsylvania**.
 
 You spawn at the **Amtrak station** (50 S Wilson Ave) and walk the real path into **Center Square** (High Street & Market Street).
 
+**SPAWN TEST:** the depot is a brick mass with slate gable, chimney, porch posts, limestone trim, rails/platforms, and a **S WILSON AVE** sign — not a gray box on a gray strip. (The real 1915 ELT is Holmesburg granite; this slice uses brick for immediate recognition per the brief.)
+
 **Play:** [https://urbanrunnerx.github.io/etown-voxel/](https://urbanrunnerx.github.io/etown-voxel/)
 
 ## How to walk the path
