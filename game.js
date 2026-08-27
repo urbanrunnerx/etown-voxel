@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 
 const GROUND = {
-  1: 0x1a1814, // grass — dusk
+  1: 0x2c2a24, // grass — dusk readable
   2: 0x3a3732, // asphalt
   3: 0x5c564c, // sidewalk
   4: 0x2c281f, // path
@@ -15,9 +15,9 @@ const GROUND = {
 const WALL = {
   10: 0x2c221c, // dark brick mass (depot)
   11: 0x32261e, // brick2
-  12: 0x6e6860, // Holmesburg granite
+  12: 0xa39a8c, // Holmesburg granite (readable at dusk)
   13: 0x241e18, // house mass
-  14: 0x1c1a16, // shed
+  14: 0x4a453c, // bank / earth
   15: 0x1a1816, // industrial
   16: 0x2a261f, // church
   17: 0x2a2218, // timber
@@ -40,7 +40,7 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0c1018);
-scene.fog = new THREE.FogExp2(0x121722, 0.00115);
+scene.fog = new THREE.FogExp2(0x1a1410, 0.00055);
 
 const camera = new THREE.PerspectiveCamera(64, innerWidth / innerHeight, 0.12, 900);
 const controls = new PointerLockControls(camera, document.body);
@@ -70,16 +70,22 @@ const skyMat = new THREE.ShaderMaterial({
 });
 scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-scene.add(new THREE.HemisphereLight(0x6a7a99, 0x1a1612, 0.85));
-const sun = new THREE.DirectionalLight(0xffb07a, 1.15);
-sun.position.set(-400, 180, 120);
+scene.add(new THREE.HemisphereLight(0xd0d8e8, 0x4a4034, 1.85));
+const sun = new THREE.DirectionalLight(0xffc090, 2.0);
+sun.position.set(-280, 140, -240); // west-south, hits the Wilson facade
 scene.add(sun);
 const moon = new THREE.DirectionalLight(0x8aa0c4, 0.22);
 moon.position.set(200, 300, -100);
 scene.add(moon);
-const stationLamp = new THREE.PointLight(0xffc27a, 1.4, 70, 2.0);
-stationLamp.position.set(0, 8, 8);
+const stationLamp = new THREE.PointLight(0xffd4a0, 12, 80, 1.4);
+stationLamp.position.set(0, 11, 0);
 scene.add(stationLamp);
+const driveLamp = new THREE.DirectionalLight(0xffe0b8, 1.15);
+driveLamp.position.set(30, 70, -160);
+scene.add(driveLamp);
+const platLamp = new THREE.PointLight(0xffe8c8, 16, 90, 1.3);
+platLamp.position.set(0, 14, 14);
+scene.add(platLamp);
 const squareLamp = new THREE.PointLight(0xe8d0a0, 1.6, 90, 2.0);
 squareLamp.position.set(531, 11, -514);
 scene.add(squareLamp);
@@ -290,18 +296,28 @@ function makeSignTexture(text, kind) {
 }
 
 
+const DETAIL_KIND = {
+  chimney: 0xa39a8c,
+  canopy_post: 0xb8a888,
+  canopy: 0xd8c4a4,
+  elevator: 0xa8c4d4,
+  gullwing: 0xc4ccd4,
+  rail: 0x9aa2aa,
+  ballast: 0x5a564c,
+  platform_deck: 0x7a7872,
+  yellow_edge: 0xd4b43a,
+};
 function addDetails(details) {
   if (!details || !details.length) return;
   const by = new Map();
   for (const d of details) {
-    if (!by.has(d.mat)) by.set(d.mat, []);
-    by.get(d.mat).push(d);
+    const key = d.kind || ("m" + d.mat);
+    if (!by.has(key)) by.set(key, []);
+    by.get(key).push(d);
   }
-  for (const [matId, list] of by) {
-    const color = DETAIL[matId] || 0x888888;
-    const rough = matId === 18 ? 0.98 : matId === 19 ? 0.72 : 0.88;
-    const metal = matId === 15 ? 0.55 : 0.03;
-    const mesh = instanced(color, list.length, rough, metal);
+  for (const [key, list] of by) {
+    const color = DETAIL_KIND[key] || DETAIL[list[0].mat] || 0x888888;
+    const mesh = instanced(color, list.length);
     list.forEach((d, i) => {
       put(mesh, i, d.x + d.w * 0.5, d.y + d.h * 0.5, d.z + d.d * 0.5, d.w, d.h, d.d);
     });
@@ -337,7 +353,7 @@ function addLabels(labels) {
 }
 
 async function loadWorld() {
-  const res = await fetch("./data/chunk.json");
+  const res = await fetch("./data/chunk.json?v=plat1");
   chunk = await res.json();
   bounds = chunk.bounds;
 
@@ -388,8 +404,10 @@ async function loadWorld() {
       mesh.instanceMatrix.needsUpdate = true;
     }
     if (tall.length) {
-      const lit = matId === 12 ? 0.15 : matId === 10 ? 0.4 : 0.85;
-      const mesh = instancedDusk(WALL[matId] || 0x241e18, tall.length, lit);
+      // Granite depot + bank: Lambert so scene lights hit and no amber window slots.
+      const mesh = (matId === 12 || matId === 14)
+        ? instanced(WALL[matId] || 0x333333, tall.length)
+        : instancedDusk(WALL[matId] || 0x241e18, tall.length, 0.55);
       tall.forEach((b, i) => {
         const h = b[4];
         const x = b[0] + b[2] * 0.5;
@@ -414,10 +432,14 @@ async function loadWorld() {
   const sp = chunk.spawn;
   camera.position.set(sp.x, sp.y, sp.z);
   camera.rotation.order = "YXZ";
-  // PointerLockControls reads the camera; set yaw by looking
-  camera.rotation.set(0, sp.yaw, 0);
+  // Platform: look along the rails. Stone Gothic sits below to the left.
+  camera.lookAt(-20, 8.0, 8);
+  stationLamp.position.set(sp.x, sp.y + 4, sp.z);
 
-  if (view) applyView(view);
+  if (view) {
+    overlay.classList.add("hidden");
+    applyView(view);
+  }
   requestAnimationFrame(() => {
     renderer.render(scene, camera);
     window.__ETOWN_READY = true;
@@ -429,11 +451,11 @@ function applyView(name) {
   const sq = chunk.square;
   const st = chunk.spawn;
   if (name === "station") {
-    camera.position.set(12, 2.4, -22);
-    camera.lookAt(0, 6.5, -4);
+    camera.position.set(6, 10.4, 16);
+    camera.lookAt(-16, 6.5, 4);
   } else if (name === "spawn") {
-    camera.position.set(st.x, 1.7, st.z);
-    camera.lookAt(st.x + 28, 2.2, st.z - 36);
+    camera.position.set(st.x, st.y, st.z);
+    camera.lookAt(-20, 8.0, 8);
   } else if (name === "square") {
     camera.position.set(sq.x - 22, 12, sq.z + 40);
     camera.lookAt(sq.x, 3.5, sq.z);
