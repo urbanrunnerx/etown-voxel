@@ -15,7 +15,7 @@ const GROUND = {
 const WALL = {
   10: 0x2c221c, // dark brick mass (depot)
   11: 0x32261e, // brick2
-  12: 0xa39a8c, // Holmesburg granite (readable at dusk)
+  12: 0xd2c6b0, // Holmesburg granite (unlit, readable)
   13: 0x241e18, // house mass
   14: 0x4a453c, // bank / earth
   15: 0x1a1816, // industrial
@@ -34,13 +34,13 @@ const view = params.get("view"); // spawn | square | path — screenshot cameras
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x0c1018, 1);
+renderer.setClearColor(0x1a2433, 1);
 renderer.shadowMap.enabled = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x0c1018);
-scene.fog = new THREE.FogExp2(0x1a1410, 0.00055);
+scene.background = new THREE.Color(0x1a2433);
+scene.fog = new THREE.FogExp2(0x243040, 0.00028);
 
 const camera = new THREE.PerspectiveCamera(64, innerWidth / innerHeight, 0.12, 900);
 const controls = new PointerLockControls(camera, document.body);
@@ -92,6 +92,16 @@ scene.add(squareLamp);
 
 const unit = new THREE.BoxGeometry(1, 1, 1);
 const meshes = [];
+
+function instancedUnlit(color, count) {
+  if (count <= 0) return null;
+  const mat = new THREE.MeshBasicMaterial({ color });
+  const mesh = new THREE.InstancedMesh(unit, mat, count);
+  mesh.frustumCulled = true;
+  scene.add(mesh);
+  meshes.push(mesh);
+  return mesh;
+}
 
 function instanced(color, count, roughness = 0.92, metalness = 0.02) {
   if (count <= 0) return null;
@@ -317,7 +327,7 @@ function addDetails(details) {
   }
   for (const [key, list] of by) {
     const color = DETAIL_KIND[key] || DETAIL[list[0].mat] || 0x888888;
-    const mesh = instanced(color, list.length);
+    const mesh = instancedUnlit(color, list.length);
     list.forEach((d, i) => {
       put(mesh, i, d.x + d.w * 0.5, d.y + d.h * 0.5, d.z + d.d * 0.5, d.w, d.h, d.d);
     });
@@ -353,7 +363,7 @@ function addLabels(labels) {
 }
 
 async function loadWorld() {
-  const res = await fetch("./data/chunk.json?v=plat1");
+  const res = await fetch("./data/chunk.json?v=face1");
   chunk = await res.json();
   bounds = chunk.bounds;
 
@@ -406,8 +416,8 @@ async function loadWorld() {
     if (tall.length) {
       // Granite depot + bank: Lambert so scene lights hit and no amber window slots.
       const mesh = (matId === 12 || matId === 14)
-        ? instanced(WALL[matId] || 0x333333, tall.length)
-        : instancedDusk(WALL[matId] || 0x241e18, tall.length, 0.55);
+        ? instancedUnlit(WALL[matId] || 0x333333, tall.length)
+        : instancedDusk(WALL[matId] || 0x241e18, tall.length, 0.35);
       tall.forEach((b, i) => {
         const h = b[4];
         const x = b[0] + b[2] * 0.5;
@@ -432,9 +442,9 @@ async function loadWorld() {
   const sp = chunk.spawn;
   camera.position.set(sp.x, sp.y, sp.z);
   camera.rotation.order = "YXZ";
-  // Platform: look along the rails. Stone Gothic sits below to the left.
-  camera.lookAt(-20, 8.0, 8);
-  stationLamp.position.set(sp.x, sp.y + 4, sp.z);
+  // First frame: driveway 3/4 on the granite hall. Rails sit on the bank behind.
+  camera.lookAt(0, 6.8, -2);
+  stationLamp.position.set(0, 10, -6);
 
   if (view) {
     overlay.classList.add("hidden");
@@ -451,11 +461,11 @@ function applyView(name) {
   const sq = chunk.square;
   const st = chunk.spawn;
   if (name === "station") {
-    camera.position.set(6, 10.4, 16);
-    camera.lookAt(-16, 6.5, 4);
+    camera.position.set(16, 4.2, -28);
+    camera.lookAt(0, 6.8, -2);
   } else if (name === "spawn") {
     camera.position.set(st.x, st.y, st.z);
-    camera.lookAt(-20, 8.0, 8);
+    camera.lookAt(0, 6.8, -2);
   } else if (name === "square") {
     camera.position.set(sq.x - 22, 12, sq.z + 40);
     camera.lookAt(sq.x, 3.5, sq.z);

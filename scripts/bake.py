@@ -733,8 +733,9 @@ def main() -> None:
                 "w": 20.0, "d": 3.2, "y": BANK + 0.4, "h": 0.35, "mat": 15,
             })
 
-        # spawn on the raised platform, looking along the rails (hall below, left)
-        sx, sz = rail_cx + px * 4.0, rail_cz + pz * 4.0
+        # spawn on the Wilson driveway, 3/4 on the stone hall (rails on the bank behind)
+        sx = hall_ox + px * (hall_half_w + 16.0) + ux * 16.0
+        sz = hall_oz + pz * (hall_half_w + 16.0) + uz * 16.0
 
     # rebuild greedy after station rewrite
     # rebuild greedy after station rewrite
@@ -745,10 +746,11 @@ def main() -> None:
         builds_out = [flip_build(b) for b in build_boxes]
         ground_rects = greedy_2d(ground, MIN_X, MIN_Z)
         ground_out = [flip_ground(r) for r in ground_rects]
-        # look west along the bank so the stone hall sits below to the left
-        yaw = 1.2
+        dx = hall_ox - sx
+        dz = hall_oz - sz
+        yaw = math.atan2(dx, dz)
         spawn["x"] = round(sx, 2)
-        spawn["y"] = 9.7
+        spawn["y"] = 4.2
         spawn["z"] = round(-sz, 2)
         spawn["yaw"] = round(yaw, 4)
 
