@@ -633,8 +633,10 @@ def main() -> None:
         # hall sits toward Wilson ( +perp ), leaving the bank between hall and rails
         hall_ox = rail_cx + px * (16.0 + hall_half_w)
         hall_oz = rail_cz + pz * (16.0 + hall_half_w)
-        stamp_oriented(hall_ox, hall_oz, hall_half_len, hall_half_w, eaves, W_LIMESTONE, gable=True)
-        # steepen: extra gable already +3 in stamp; add two more meters at the ridge
+        # Long Wilson facade is FLAT eaves. Steep gables only on the short ENDs
+        # (height varies with |along|, not across) — otherwise the long face bands
+        # like a parking garage.
+        stamp_oriented(hall_ox, hall_oz, hall_half_len, hall_half_w, eaves, W_LIMESTONE, gable=False)
         pad = hall_half_len + hall_half_w + 2
         i0s = max(0, int(hall_ox - pad) - MIN_X)
         i1s = min(W - 1, int(hall_ox + pad) - MIN_X)
@@ -650,8 +652,9 @@ def main() -> None:
                 if abs(along) > hall_half_len or abs(across) > hall_half_w:
                     continue
                 if wmats[j, ii] == W_LIMESTONE:
-                    t = 1.0 - abs(across) / max(hall_half_w, 0.5)
-                    hgt[j, ii] = eaves + int(round(5.0 * t))  # eaves 4, ridge 9
+                    # end gables: rise only near |along| ends; mid long facade stays eaves
+                    end = max(0.0, (abs(along) - (hall_half_len - 6.0)) / 6.0)
+                    hgt[j, ii] = eaves + int(round(5.0 * end))  # eaves 4, end ridge 9
 
         # dirt/stone embankment under the rails
         def stamp_disk(x, z, r, gmat, hh=0, wmat=0):

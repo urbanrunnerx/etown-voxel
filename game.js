@@ -15,7 +15,7 @@ const GROUND = {
 const WALL = {
   10: 0x2c221c, // dark brick mass (depot)
   11: 0x32261e, // brick2
-  12: 0xd2c6b0, // Holmesburg granite (unlit, readable)
+  12: 0xe8dcc8, // Holmesburg granite (unlit)
   13: 0x241e18, // house mass
   14: 0x4a453c, // bank / earth
   15: 0x1a1816, // industrial
@@ -316,6 +316,7 @@ const DETAIL_KIND = {
   ballast: 0x5a564c,
   platform_deck: 0x7a7872,
   yellow_edge: 0xd4b43a,
+  slate_gable: 0x2a2826,
 };
 function addDetails(details) {
   if (!details || !details.length) return;
@@ -363,7 +364,7 @@ function addLabels(labels) {
 }
 
 async function loadWorld() {
-  const res = await fetch("./data/chunk.json?v=face1");
+  const res = await fetch("./data/chunk.json?v=gable1");
   chunk = await res.json();
   bounds = chunk.bounds;
 
@@ -442,9 +443,9 @@ async function loadWorld() {
   const sp = chunk.spawn;
   camera.position.set(sp.x, sp.y, sp.z);
   camera.rotation.order = "YXZ";
-  // First frame: driveway 3/4 on the granite hall. Rails sit on the bank behind.
-  camera.lookAt(0, 6.8, -2);
-  stationLamp.position.set(0, 10, -6);
+  // First frame: driveway 3/4 on the FLAT granite facade. End gables + bank behind.
+  camera.lookAt(0, 5.0, -6);
+  stationLamp.position.set(0, 8, -10);
 
   if (view) {
     overlay.classList.add("hidden");
@@ -461,11 +462,11 @@ function applyView(name) {
   const sq = chunk.square;
   const st = chunk.spawn;
   if (name === "station") {
-    camera.position.set(16, 4.2, -28);
-    camera.lookAt(0, 6.8, -2);
+    camera.position.set(10, 2.4, -26);
+    camera.lookAt(0, 5.0, -6);
   } else if (name === "spawn") {
     camera.position.set(st.x, st.y, st.z);
-    camera.lookAt(0, 6.8, -2);
+    camera.lookAt(0, 5.0, -6);
   } else if (name === "square") {
     camera.position.set(sq.x - 22, 12, sq.z + 40);
     camera.lookAt(sq.x, 3.5, sq.z);
