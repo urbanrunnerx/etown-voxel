@@ -2,9 +2,9 @@ import * as THREE from "three";
 import { PointerLockControls } from "three/addons/controls/PointerLockControls.js";
 
 const GROUND = {
-  1: 0x2c2a24, // grass — dusk readable
-  2: 0x3a3732, // asphalt
-  3: 0x5c564c, // sidewalk
+  1: 0x3a4030, // grass — golden hour
+  2: 0x4e4a44, // asphalt
+  3: 0x7a7368, // sidewalk
   4: 0x2c281f, // path
   5: 0x262420, // parking
   6: 0x8b9096, // rail
@@ -15,9 +15,9 @@ const GROUND = {
 const WALL = {
   10: 0x2c221c, // dark brick mass (depot)
   11: 0x32261e, // brick2
-  12: 0xe8dcc8, // Holmesburg granite (unlit)
+  12: 0xcbb89a, // Holmesburg granite
   13: 0x241e18, // house mass
-  14: 0x4a453c, // bank / earth
+  14: 0x6e6254, // bank / earth
   15: 0x1a1816, // industrial
   16: 0x2a261f, // church
   17: 0x2a2218, // timber
@@ -34,13 +34,13 @@ const view = params.get("view"); // spawn | square | path — screenshot cameras
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
-renderer.setClearColor(0x1a2433, 1);
+renderer.setClearColor(0xc07040, 1);
 renderer.shadowMap.enabled = false;
 document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a2433);
-scene.fog = new THREE.FogExp2(0x243040, 0.00028);
+scene.background = new THREE.Color(0xc07040);
+scene.fog = new THREE.FogExp2(0xc07848, 0.00016);
 
 const camera = new THREE.PerspectiveCamera(64, innerWidth / innerHeight, 0.12, 900);
 const controls = new PointerLockControls(camera, document.body);
@@ -55,37 +55,37 @@ const skyMat = new THREE.ShaderMaterial({
     "varying vec3 vP;",
     "void main(){",
     "  vec3 n = normalize(vP); float h = n.y;",
-    "  vec3 zenith = vec3(0.04, 0.055, 0.09);",
-    "  vec3 mid    = vec3(0.10, 0.13, 0.20);",
-    "  vec3 horz   = vec3(0.72, 0.42, 0.28);",
-    "  vec3 below  = vec3(0.08, 0.07, 0.07);",
-    "  vec3 col = mix(mid, zenith, smoothstep(0.0, 0.75, h));",
-    "  col = mix(horz, col, smoothstep(-0.05, 0.18, h));",
-    "  col = mix(below, col, smoothstep(-0.25, 0.02, h));",
-    "  float west = smoothstep(0.15, 0.8, -n.x) * (1.0 - abs(h));",
-    "  col += vec3(0.18, 0.07, 0.02) * west * 0.45;",
+    "  vec3 zenith = vec3(0.20, 0.18, 0.38);",
+    "  vec3 mid    = vec3(0.62, 0.40, 0.32);",
+    "  vec3 horz   = vec3(1.00, 0.62, 0.28);",
+    "  vec3 below  = vec3(0.42, 0.24, 0.16);",
+    "  vec3 col = mix(mid, zenith, smoothstep(0.05, 0.85, h));",
+    "  col = mix(horz, col, smoothstep(-0.08, 0.22, h));",
+    "  col = mix(below, col, smoothstep(-0.28, 0.02, h));",
+    "  vec3 sunDir = normalize(vec3(-0.88, 0.10, -0.28));",
+    "  float sunDot = max(dot(n, sunDir), 0.0);",
+    "  col += vec3(1.0, 0.78, 0.40) * pow(sunDot, 280.0) * 2.4;",
+    "  col += vec3(1.0, 0.50, 0.18) * pow(sunDot, 12.0) * 0.55;",
+    "  col += vec3(0.55, 0.22, 0.08) * pow(sunDot, 3.0) * 0.28;",
     "  gl_FragColor = vec4(col, 1.0);",
     "}",
   ].join("\n"),
 });
 scene.add(new THREE.Mesh(skyGeo, skyMat));
 
-scene.add(new THREE.HemisphereLight(0xd0d8e8, 0x4a4034, 1.85));
-const sun = new THREE.DirectionalLight(0xffc090, 2.0);
-sun.position.set(-280, 140, -240); // west-south, hits the Wilson facade
+scene.add(new THREE.HemisphereLight(0xffd2a8, 0x6a4a32, 1.35));
+const sun = new THREE.DirectionalLight(0xffc078, 3.2);
+sun.position.set(-420, 22, -140); // on the western horizon, rakes the Wilson facade
 scene.add(sun);
-const moon = new THREE.DirectionalLight(0x8aa0c4, 0.22);
+const bounce = new THREE.DirectionalLight(0xffe0c0, 0.85);
+bounce.position.set(180, 80, 60);
+scene.add(bounce);
+const moon = new THREE.DirectionalLight(0x8aa0c4, 0.08);
 moon.position.set(200, 300, -100);
 scene.add(moon);
-const stationLamp = new THREE.PointLight(0xffd4a0, 12, 80, 1.4);
-stationLamp.position.set(0, 11, 0);
+const stationLamp = new THREE.PointLight(0xffd4a0, 4, 50, 1.6);
+stationLamp.position.set(0, 8, -10);
 scene.add(stationLamp);
-const driveLamp = new THREE.DirectionalLight(0xffe0b8, 1.15);
-driveLamp.position.set(30, 70, -160);
-scene.add(driveLamp);
-const platLamp = new THREE.PointLight(0xffe8c8, 16, 90, 1.3);
-platLamp.position.set(0, 14, 14);
-scene.add(platLamp);
 const squareLamp = new THREE.PointLight(0xe8d0a0, 1.6, 90, 2.0);
 squareLamp.position.set(531, 11, -514);
 scene.add(squareLamp);
@@ -148,10 +148,10 @@ const duskFrag = [
   "  vec3 winCol = mix(vec3(0.06, 0.07, 0.09), vec3(1.0, 0.70, 0.36), occupied);",
   "  vec3 base = mix(wall, roof, smoothstep(0.55, 0.88, up));",
   "  base = mix(base, winCol, windowPane);",
-  "  vec3 L = normalize(vec3(-0.62, 0.38, 0.28));",
+  "  vec3 L = normalize(vec3(-0.88, 0.12, -0.28));",
   "  float ndl = max(dot(N, L), 0.0);",
-  "  vec3 hemi = mix(vec3(0.16, 0.13, 0.11), vec3(0.32, 0.36, 0.44), N.y * 0.5 + 0.5);",
-  "  vec3 col = base * (hemi + vec3(1.0, 0.72, 0.48) * ndl * 0.62 + vec3(0.16, 0.20, 0.28) * 0.28);",
+  "  vec3 hemi = mix(vec3(0.38, 0.24, 0.16), vec3(0.95, 0.62, 0.38), N.y * 0.5 + 0.5);",
+  "  vec3 col = base * (hemi + vec3(1.0, 0.72, 0.42) * ndl * 1.15 + vec3(0.35, 0.22, 0.14) * 0.4);",
   "  col += winCol * windowPane * occupied * 0.9;",
   "  float rim = pow(1.0 - max(dot(N, V), 0.0), 2.8) * 0.14;",
   "  col += vec3(0.65, 0.42, 0.28) * rim * (1.0 - abs(up));",
@@ -364,7 +364,7 @@ function addLabels(labels) {
 }
 
 async function loadWorld() {
-  const res = await fetch("./data/chunk.json?v=gable1");
+  const res = await fetch("./data/chunk.json?v=gold1");
   chunk = await res.json();
   bounds = chunk.bounds;
 
@@ -417,8 +417,8 @@ async function loadWorld() {
     if (tall.length) {
       // Granite depot + bank: Lambert so scene lights hit and no amber window slots.
       const mesh = (matId === 12 || matId === 14)
-        ? instancedUnlit(WALL[matId] || 0x333333, tall.length)
-        : instancedDusk(WALL[matId] || 0x241e18, tall.length, 0.35);
+        ? instanced(WALL[matId] || 0x333333, tall.length)
+        : instancedDusk(WALL[matId] || 0x241e18, tall.length, 0.22);
       tall.forEach((b, i) => {
         const h = b[4];
         const x = b[0] + b[2] * 0.5;
