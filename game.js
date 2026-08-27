@@ -15,7 +15,7 @@ const GROUND = {
 const WALL = {
   10: 0x2c221c, // dark brick mass (depot)
   11: 0x32261e, // brick2
-  12: 0x3a3732, // limestone / platform slab
+  12: 0x6e6860, // Holmesburg granite
   13: 0x241e18, // house mass
   14: 0x1c1a16, // shed
   15: 0x1a1816, // industrial
@@ -219,7 +219,7 @@ function queryBoxes(px, pz) {
 
 function groundY(px, pz) {
   let y = 0;
-  for (const b of lowBoxes) {
+  for (const b of queryBoxes(px, pz)) {
     if (px >= b[0] && px <= b[0] + b[2] && pz >= b[1] && pz <= b[1] + b[3]) {
       y = Math.max(y, b[4]);
     }
@@ -313,6 +313,7 @@ function addLabels(labels) {
   const postMat = new THREE.MeshStandardMaterial({ color: 0x3a2c22, roughness: 0.9 });
   const postGeo = new THREE.BoxGeometry(0.12, 2.8, 0.12);
   for (const lab of labels) {
+    if (/station/i.test(lab.text || "")) continue;
     const { tex, aspect } = makeSignTexture(lab.text, lab.kind);
     const h = lab.kind === "place" ? 2.2 : lab.kind === "shop" ? 0.85 : 1.15;
     const w = h * aspect;
@@ -370,7 +371,7 @@ async function loadWorld() {
     }
     if (!wallBy.has(mat)) wallBy.set(mat, []);
     wallBy.get(mat).push(b);
-    if (mat !== 10) roofs.push(b); // depot brick gable is the roof (any hall height)
+    if (mat !== 10 && mat !== 12) roofs.push(b); // depot gable is the roof
     binInsert(b);
   }
   for (const [matId, list] of wallBy) {
@@ -387,7 +388,7 @@ async function loadWorld() {
       mesh.instanceMatrix.needsUpdate = true;
     }
     if (tall.length) {
-      const lit = matId === 10 ? 0.4 : 0.85;
+      const lit = matId === 12 ? 0.15 : matId === 10 ? 0.4 : 0.85;
       const mesh = instancedDusk(WALL[matId] || 0x241e18, tall.length, lit);
       tall.forEach((b, i) => {
         const h = b[4];
@@ -428,8 +429,8 @@ function applyView(name) {
   const sq = chunk.square;
   const st = chunk.spawn;
   if (name === "station") {
-    camera.position.set(10, 2.6, 34);
-    camera.lookAt(0, 5.0, 5);
+    camera.position.set(12, 2.4, -22);
+    camera.lookAt(0, 6.5, -4);
   } else if (name === "spawn") {
     camera.position.set(st.x, 1.7, st.z);
     camera.lookAt(st.x + 28, 2.2, st.z - 36);

@@ -99,7 +99,7 @@ def wall_mat_for(tags: dict) -> int:
     b = (tags.get("building") or "").lower()
     name = (tags.get("name") or "").lower()
     if "amtrak" in name or b == "train_station":
-        return W_BRICK
+        return W_LIMESTONE
     if b in ("church", "cathedral", "chapel"):
         return W_CHURCH
     if b in ("industrial", "warehouse"):
@@ -627,64 +627,116 @@ def main() -> None:
                     hgt[j, ii] = 0
                     wmats[j, ii] = 0
 
-        # long THIN brick bar parallel to rails, Wilson/town side, close to the tracks
-        bar_half_len, bar_half_w, eaves = 24.0, 4.0, 5
-        bar_ox = rail_cx + px * (7.0 + bar_half_w)
-        bar_oz = rail_cz + pz * (7.0 + bar_half_w)
-        stamp_oriented(bar_ox, bar_oz, bar_half_len, bar_half_w, eaves, W_BRICK, gable=True)
+        # 1915 Collegiate Gothic depot: stone hall at GRADE, rails on a bank ABOVE it
+        BANK = 8
+        hall_half_len, hall_half_w, eaves = 12.0, 6.0, 4
+        # hall sits toward Wilson ( +perp ), leaving the bank between hall and rails
+        hall_ox = rail_cx + px * (16.0 + hall_half_w)
+        hall_oz = rail_cz + pz * (16.0 + hall_half_w)
+        stamp_oriented(hall_ox, hall_oz, hall_half_len, hall_half_w, eaves, W_LIMESTONE, gable=True)
+        # steepen: extra gable already +3 in stamp; add two more meters at the ridge
+        pad = hall_half_len + hall_half_w + 2
+        i0s = max(0, int(hall_ox - pad) - MIN_X)
+        i1s = min(W - 1, int(hall_ox + pad) - MIN_X)
+        j0s = max(0, int(hall_oz - pad) - MIN_Z)
+        j1s = min(D - 1, int(hall_oz + pad) - MIN_Z)
+        for j in range(j0s, j1s + 1):
+            wz = MIN_Z + j + 0.5
+            for ii in range(i0s, i1s + 1):
+                wx = MIN_X + ii + 0.5
+                dx, dz = wx - hall_ox, wz - hall_oz
+                along = dx * ux + dz * uz
+                across = dx * px + dz * pz
+                if abs(along) > hall_half_len or abs(across) > hall_half_w:
+                    continue
+                if wmats[j, ii] == W_LIMESTONE:
+                    t = 1.0 - abs(across) / max(hall_half_w, 0.5)
+                    hgt[j, ii] = eaves + int(round(5.0 * t))  # eaves 4, ridge 9
 
-        # platforms BOTH sides of the actual rail segs (ground only, not a 1 m gray wing)
-        def stamp_disk(x, z, r, gmat):
-            i0s = max(0, int(x - r) - MIN_X)
-            i1s = min(W - 1, int(x + r) - MIN_X)
-            j0s = max(0, int(z - r) - MIN_Z)
-            j1s = min(D - 1, int(z + r) - MIN_Z)
+        # dirt/stone embankment under the rails
+        def stamp_disk(x, z, r, gmat, hh=0, wmat=0):
+            i0d = max(0, int(x - r) - MIN_X)
+            i1d = min(W - 1, int(x + r) - MIN_X)
+            j0d = max(0, int(z - r) - MIN_Z)
+            j1d = min(D - 1, int(z + r) - MIN_Z)
             rr = r * r
-            for j in range(j0s, j1s + 1):
+            for j in range(j0d, j1d + 1):
                 wz = MIN_Z + j + 0.5
-                for ii in range(i0s, i1s + 1):
+                for ii in range(i0d, i1d + 1):
                     wx = MIN_X + ii + 0.5
                     if (wx - x) ** 2 + (wz - z) ** 2 <= rr:
-                        ground[j, ii] = gmat
+                        if gmat:
+                            ground[j, ii] = gmat
+                        if hh:
+                            hgt[j, ii] = max(int(hgt[j, ii]), hh)
+                            wmats[j, ii] = wmat
 
         for x0, z0, x1, z1 in rail_segs:
             sx, sz = x1 - x0, z1 - z0
             sl = math.hypot(sx, sz) or 1.0
-            rx, rz = -sz / sl, sx / sl  # perp
+            rx, rz = -sz / sl, sx / sl
             steps = max(1, int(sl))
-            for s in range(steps + 1):
-                t = s / steps
+            for st in range(steps + 1):
+                t = st / steps
                 x = x0 + sx * t
                 z = z0 + sz * t
-                stamp_disk(x + rx * 4.0, z + rz * 4.0, 1.6, G_PLATFORM)
-                stamp_disk(x - rx * 4.0, z - rz * 4.0, 1.6, G_PLATFORM)
+                stamp_disk(x, z, 6.5, G_BALLAST, BANK, W_SHED)
+                stamp_disk(x + rx * 4.0, z + rz * 4.0, 2.2, G_PLATFORM, BANK, W_SHED)
+                stamp_disk(x - rx * 4.0, z - rz * 4.0, 2.2, G_PLATFORM, BANK, W_SHED)
 
-        # canopy along the track face of the bar (same length, no side wing)
-        canopy_y = 3.4
-        face = bar_half_w + 0.2
-        npost = int(bar_half_len * 2 // 4)
-        for k in range(-npost, npost + 1):
-            along = k * 4.0
-            if abs(along) > bar_half_len - 1:
-                continue
+        # stairs from grade up the bank, next to the elevator
+        stair_ox = rail_cx + px * 10.0
+        stair_oz = rail_cz + pz * 10.0
+        for step, hh in enumerate((2, 4, 6, 8)):
+            stamp_oriented(
+                stair_ox + px * (step * 1.2), stair_oz + pz * (step * 1.2),
+                2.0, 1.2, hh, W_LIMESTONE,
+            )
+
+        # chimney (west end of hall)
+        station_details.append({
+            "kind": "chimney",
+            "x": hall_ox - ux * (hall_half_len - 2) - 0.7,
+            "z": hall_oz - uz * (hall_half_len - 2) - 0.7,
+            "w": 1.4, "d": 1.4, "y": 8.0, "h": 6.0, "mat": 12,
+        })
+        # wooden porte-cochere on the Wilson/driveway face
+        canopy_y = 3.2
+        face = hall_half_w + 0.3
+        for k in (-4, 0, 4):
             station_details.append({
                 "kind": "canopy_post",
-                "x": bar_ox + ux * along - px * face,
-                "z": bar_oz + uz * along - pz * face,
-                "w": 0.35, "d": 0.35, "y": 0.0, "h": canopy_y, "mat": 17,
+                "x": hall_ox + ux * k + px * (face + 0.4),
+                "z": hall_oz + uz * k + pz * (face + 0.4),
+                "w": 0.55, "d": 0.55, "y": 0.0, "h": canopy_y, "mat": 19,
             })
-        # several short lids along the face so it does not AABB into an L
-        for k in range(-npost, npost):
-            along = k * 4.0 + 2.0
-            if abs(along) > bar_half_len - 2:
-                continue
+        station_details.append({
+            "kind": "canopy",
+            "x": hall_ox - hall_half_len * 0.45 + px * face,
+            "z": hall_oz - 1.0 + pz * face,
+            "w": hall_half_len * 0.9, "d": 4.0, "y": canopy_y, "h": 0.4, "mat": 17,
+        })
+        # glass elevator tower from grade to the bank
+        el_x = rail_cx + px * 9.0 + ux * 8.0
+        el_z = rail_cz + pz * 9.0 + uz * 8.0
+        station_details.append({
+            "kind": "elevator",
+            "x": el_x - 1.2, "z": el_z - 1.2,
+            "w": 2.4, "d": 2.4, "y": 0.0, "h": 12.0, "mat": 15,
+        })
+        # gull-wing platform shelters on the bank
+        for side in (4.0, -4.0):
             station_details.append({
-                "kind": "canopy",
-                "x": bar_ox + ux * along - px * (face + 1.2) - 2.0,
-                "z": bar_oz + uz * along - pz * (face + 1.2) - 0.4,
-                "w": 4.2, "d": 2.4, "y": canopy_y, "h": 0.3, "mat": 18,
+                "kind": "gullwing",
+                "x": rail_cx + px * side - 10.0,
+                "z": rail_cz + pz * side - 2.0,
+                "w": 20.0, "d": 3.2, "y": BANK + 0.4, "h": 0.35, "mat": 15,
             })
 
+        # spawn on the raised platform, looking at Center Square
+        sx, sz = rail_cx + px * 4.0, rail_cz + pz * 4.0
+
+    # rebuild greedy after station rewrite
     # rebuild greedy after station rewrite
     # rebuild greedy after station rewrite
     # rebuild greedy after station rewrite
@@ -693,6 +745,13 @@ def main() -> None:
         builds_out = [flip_build(b) for b in build_boxes]
         ground_rects = greedy_2d(ground, MIN_X, MIN_Z)
         ground_out = [flip_ground(r) for r in ground_rects]
+        dx = sq_x - sx
+        dz = sq_z - sz
+        yaw = math.atan2(dx, dz)
+        spawn["x"] = round(sx, 2)
+        spawn["y"] = 9.7
+        spawn["z"] = round(-sz, 2)
+        spawn["yaw"] = round(yaw, 4)
 
     def flip_detail(d):
         # OSM x east, z north -> three x east, z south
