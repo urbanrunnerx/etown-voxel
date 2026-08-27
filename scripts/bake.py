@@ -466,7 +466,7 @@ def main() -> None:
     # labels: street names + station + center square
     labels = []
     # station
-    labels.append({"x": 2.0, "y": 6.0, "z": -2.0, "text": "ELIZABETHTOWN STATION", "kind": "place"})
+    labels.append({"x": 2.0, "y": 12.5, "z": -2.0, "text": "ELIZABETHTOWN STATION", "kind": "place"})
     labels.append({"x": 6.0, "y": 3.2, "z": -34.0, "text": "S WILSON AVE", "kind": "street"})
     labels.append({"x": square["x"], "y": 5.5, "z": square["z"], "text": "CENTER SQUARE", "kind": "place"})
     labels.append({"x": square["x"] + 8, "y": 3.2, "z": square["z"] - 14, "text": "MARKET ST", "kind": "street"})

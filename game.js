@@ -40,9 +40,9 @@ document.body.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x87b6d9);
-scene.fog = new THREE.Fog(0x9ec4e0, 90, 460);
+scene.fog = new THREE.Fog(0x9ec4e0, 140, 720);
 
-const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.12, 700);
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.12, 900);
 const controls = new PointerLockControls(camera, document.body);
 
 const hemi = new THREE.HemisphereLight(0xd7e8ff, 0x4a5a32, 1.05);
